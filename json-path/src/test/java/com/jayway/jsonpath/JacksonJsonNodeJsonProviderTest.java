@@ -3,9 +3,13 @@ package com.jayway.jsonpath;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.jayway.jsonpath.spi.json.JacksonJsonNodeJsonProvider;
+import com.jayway.jsonpath.spi.mapper.JacksonMappingProvider;
 import com.jayway.jsonpath.spi.mapper.MappingException;
 import org.junit.Test;
 
@@ -122,6 +126,32 @@ public class JacksonJsonNodeJsonProviderTest extends BaseTest {
       String id = context.read("$.data.id", String.class);
       assertThat(id).isEqualTo(uuid.toString());
     }
+
+    @Test
+    public void mapPropertyWithPOJO() {
+        String someJson = "" +
+                "{\n" +
+                "  \"a\": \"a\",\n" +
+                "  \"b\": \"b\"\n" +
+                "}";
+        ObjectMapper om = new ObjectMapper();
+        om.configure(SerializationFeature.FAIL_ON_EMPTY_BEANS, false);
+        Configuration c = Configuration
+                .builder()
+                .mappingProvider(new JacksonMappingProvider())
+                .jsonProvider(new JacksonJsonNodeJsonProvider(om))
+                .build();
+        DocumentContext context = JsonPath.using(c).parse(someJson);
+        String someJsonStr = context.jsonString();
+        DocumentContext altered = context.map("$['a', 'b', 'c']", new MapFunction() {
+            @Override
+            public Object map(Object currentValue, Configuration configuration) {
+                return currentValue;
+            }
+        });
+        assertThat(altered.jsonString()).isEqualTo(someJsonStr);
+    }
+
     // https://github.com/json-path/JsonPath/issues/366
     public void empty_array_check_works() throws IOException {
       String json = "[" +
